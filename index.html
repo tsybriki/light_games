@@ -3,43 +3,328 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Light Games</title>
+<title>🍃 Light Games — Shinobi & Blocks</title>
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;min-height:100%;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(135deg,#0e1d12 0%,#15271a 50%,#1d3324 100%);color:#e8efe9;-webkit-tap-highlight-color:transparent}
-  .wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px}
-  h1{margin:0 0 6px;font-size:32px;font-weight:800;letter-spacing:-.5px}
-  p.sub{margin:0 0 32px;color:#8aa896;font-size:14px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;max-width:760px;width:100%}
-  .card{background:rgba(36,61,44,.5);border:1px solid #3a5b45;border-radius:16px;padding:24px;text-decoration:none;color:inherit;transition:transform .18s,border-color .18s,background .18s;display:block}
-  .card:hover{transform:translateY(-4px);border-color:#7ee08a;background:rgba(58,140,92,.35)}
-  .card:active{transform:translateY(-1px) scale(.99)}
-  .emoji{font-size:48px;line-height:1;margin-bottom:12px;display:block}
-  .card h2{margin:0 0 8px;font-size:20px;font-weight:700}
-  .card p{margin:0;color:#b8c8be;font-size:13px;line-height:1.5}
-  footer{margin-top:32px;color:#5a7868;font-size:11px;text-align:center}
-  footer a{color:#8aa896;text-decoration:none;border-bottom:1px dotted #3a5b45}
+  :root{
+    --grass:#5cb85c;
+    --grass-d:#3e8e3e;
+    --grass-dd:#2d6a2d;
+    --dirt:#8b5a2b;
+    --dirt-d:#5c3a1a;
+    --stone:#7d7d7d;
+    --stone-d:#5a5a5a;
+    --leaves:#3aa83a;
+    --leaves-d:#276a27;
+    --leaf-dark:#1f4f1f;
+    --orange:#ff8c1a;       /* Naruto jumpsuit */
+    --orange-d:#cc6a00;
+    --black:#1a1a1a;
+    --ink:#0f1a0f;
+    --paper:#f5e9c4;        /* scroll / parchment */
+    --paper-d:#c9b889;
+    --red:#c92a2a;          /* Uchiha red */
+    --red-d:#8a1a1a;
+    --glow:#a4ff8a;         /* sage green chakra */
+    --hp:#ff3b3b;
+    --chakra:#3aa8ff;
+    --exp:#ffd54a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;min-height:100%;font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(255,140,26,.18) 0%, transparent 40%),
+      radial-gradient(ellipse at 80% 90%, rgba(201,42,42,.20) 0%, transparent 45%),
+      linear-gradient(180deg,#0d1a10 0%,#16291a 50%,#0a140a 100%);
+    color:#e8efe9;overflow-x:hidden}
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+    background-size:32px 32px,32px 32px;
+  }
+
+  .wrap{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 16px 48px}
+
+  /* === HEADER === */
+  .head{text-align:center;margin-bottom:24px;max-width:760px;width:100%}
+  .banner{
+    display:inline-flex;align-items:center;gap:14px;
+    padding:12px 22px;margin-bottom:14px;
+    background:linear-gradient(180deg,var(--paper) 0%,var(--paper-d) 100%);
+    border:3px solid var(--dirt-d);border-radius:4px;
+    box-shadow:0 4px 0 var(--dirt-d),inset 0 0 0 2px var(--paper-d);
+    position:relative;
+  }
+  .banner::before,.banner::after{
+    content:"";position:absolute;top:50%;width:14px;height:14px;
+    background:var(--red);border:2px solid var(--black);
+    transform:translateY(-50%) rotate(45deg);
+  }
+  .banner::before{left:-7px}
+  .banner::after{right:-7px;background:var(--black);border-color:var(--red-d)}
+  .banner h1{margin:0;font-size:22px;font-weight:900;color:var(--ink);letter-spacing:.5px;font-family:'Courier New',monospace}
+  .banner h1 span{color:var(--red-d)}
+  .sub{margin:0;color:#9bb89c;font-size:13px;letter-spacing:.3px}
+  .sub b{color:var(--orange)}
+
+  /* === HUD BAR (HP / Chakra / EXP) === */
+  .hud{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;max-width:760px;width:100%}
+  .hud-pill{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(0,0,0,.55);border:2px solid var(--stone-d);border-radius:4px;
+    padding:6px 12px;font-family:'Courier New',monospace;font-size:11px;font-weight:800;color:#fff;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.5);
+  }
+  .hud-pill .ico{font-size:14px;line-height:1}
+  .hud-bar{width:90px;height:8px;background:#000;border:1px solid var(--stone-d);position:relative;overflow:hidden}
+  .hud-bar i{position:absolute;left:0;top:0;bottom:0;display:block}
+  .hp-bar i{background:var(--hp);width:78%}
+  .ck-bar i{background:var(--chakra);width:62%}
+  .xp-bar i{background:var(--exp);width:45%}
+  .hp-bar i::after,.ck-bar i::after,.xp-bar i::after{
+    content:"";position:absolute;left:0;right:0;top:0;bottom:0;
+    background-image:linear-gradient(90deg,transparent 0,transparent 3px,rgba(255,255,255,.25) 3px,rgba(255,255,255,.25) 6px);
+    background-size:6px 100%;
+    opacity:.6;
+  }
+
+  /* === GAME GRID === */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:780px;width:100%}
+
+  /* === CARD === */
+  .card{
+    position:relative;display:block;text-decoration:none;color:inherit;
+    background:var(--ink);
+    border:3px solid var(--stone-d);
+    border-radius:4px;
+    box-shadow:0 6px 0 var(--stone-d),0 0 0 2px var(--ink) inset;
+    overflow:hidden;transition:transform .15s,box-shadow .15s;
+  }
+  .card:hover{transform:translateY(-3px);box-shadow:0 9px 0 var(--stone-d),0 0 0 2px var(--ink) inset,0 0 16px rgba(164,255,138,.35)}
+  .card:active{transform:translateY(2px);box-shadow:0 2px 0 var(--stone-d),0 0 0 2px var(--ink) inset}
+
+  /* pixel-art header strip */
+  .card-head{
+    height:64px;position:relative;
+    background:
+      linear-gradient(180deg,var(--grass) 0%,var(--grass) 70%,var(--dirt) 70%,var(--dirt-d) 100%);
+    border-bottom:3px solid var(--ink);
+    image-rendering:pixelated;
+  }
+  .card-head::after{
+    content:"";position:absolute;left:0;right:0;top:0;bottom:30%;
+    background-image:
+      radial-gradient(circle at 12% 40%,var(--leaves-d) 0 6px,transparent 7px),
+      radial-gradient(circle at 30% 25%,var(--leaves) 0 5px,transparent 6px),
+      radial-gradient(circle at 55% 50%,var(--leaves-d) 0 7px,transparent 8px),
+      radial-gradient(circle at 78% 30%,var(--leaves) 0 5px,transparent 6px),
+      radial-gradient(circle at 92% 55%,var(--leaves-d) 0 6px,transparent 7px);
+  }
+
+  /* Naruto headband band on top of grass */
+  .headband{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:78px;height:22px;
+    background:linear-gradient(180deg,#1f1f1f 0%,#0a0a0a 100%);
+    border:2px solid var(--ink);
+    box-shadow:0 2px 0 var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .headband::before{
+    content:"";position:absolute;inset:2px;
+    background:
+      repeating-linear-gradient(45deg,#0a0a0a 0 4px,#1f1f1f 4px 6px);
+  }
+  .headband .plate{
+    position:relative;z-index:1;
+    width:24px;height:16px;
+    background:var(--paper);
+    border:1px solid var(--ink);
+    box-shadow:inset 0 0 0 1px var(--paper-d);
+    transform:rotate(-12deg);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .headband .plate::before{
+    content:"";width:0;height:0;
+    border-left:6px solid transparent;border-right:6px solid transparent;
+    border-bottom:8px solid var(--ink);
+    position:absolute;top:-1px;
+  }
+  .headband .plate::after{
+    content:"";width:14px;height:14px;border-radius:50%;
+    border:2px solid var(--ink);background:var(--paper);
+    box-shadow:inset 2px -2px 0 var(--ink);
+  }
+
+  /* per-game card variant accents */
+  .card-bj .headband{filter:hue-rotate(0deg)}
+  .card-bj .headband .plate{background:var(--paper)}
+  .card-uno .headband .plate{background:var(--red-d)}
+  .card-uno .headband .plate::after{background:var(--red-d);box-shadow:inset 2px -2px 0 var(--ink)}
+
+  .card-body{padding:18px 18px 16px}
+  .card h2{margin:0 0 8px;font-size:22px;font-weight:900;letter-spacing:.3px;color:var(--orange);font-family:'Courier New',monospace}
+  .card h2 .jp{color:var(--glow);font-size:14px;margin-left:6px;font-weight:700}
+  .card p{margin:0 0 14px;color:#b8c8be;font-size:13px;line-height:1.55}
+
+  /* chip row */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .chip{
+    background:#0a140a;border:1px solid var(--stone-d);
+    padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;color:#cfd8d2;
+    text-transform:uppercase;border-radius:2px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.6);
+  }
+  .chip.c-orange{color:var(--orange);border-color:var(--orange-d)}
+  .chip.c-red{color:#ff6868;border-color:var(--red-d)}
+  .chip.c-green{color:var(--glow);border-color:var(--leaves-d)}
+
+  /* "play" action bar */
+  .play{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--stone-d);padding:10px 14px;
+    border-top:3px solid var(--ink);
+    font-family:'Courier New',monospace;font-weight:800;font-size:12px;letter-spacing:1px;
+    color:#fff;text-transform:uppercase;
+  }
+  .play .arrow{
+    display:inline-block;width:18px;height:18px;
+    background:
+      linear-gradient(45deg,transparent 45%,var(--orange) 45%,var(--orange) 55%,transparent 55%),
+      linear-gradient(-45deg,transparent 45%,var(--orange) 45%,var(--orange) 55%,transparent 55%);
+  }
+
+  /* Sharingan watermark (rotating) on card-uno */
+  .sharingan{
+    position:absolute;right:14px;bottom:96px;width:46px;height:46px;
+    border-radius:50%;
+    background:radial-gradient(circle,#222 0 5px,#1a1a1a 5px 6px,transparent 7px),
+      radial-gradient(circle at center,var(--red) 0 22px,var(--red-d) 22px 23px);
+    border:2px solid var(--ink);
+    box-shadow:0 0 12px rgba(201,42,42,.06);
+    animation:spin 8s linear infinite;opacity:.85;
+  }
+  .sharingan::before,.sharingan::after{
+    content:"";position:absolute;left:50%;top:50%;
+    width:7px;height:7px;background:var(--black);border-radius:50%;
+    transform:translate(-50%,-50%) rotate(60deg) translate(0,-13px);
+    box-shadow:0 0 0 1px var(--ink);
+  }
+  .sharingan::after{transform:translate(-50%,-50%) rotate(-60deg) translate(0,-13px)}
+  .sharingan .tomoe{
+    position:absolute;left:50%;top:50%;width:8px;height:8px;
+    background:var(--black);border-radius:50% 0 50% 50%;transform:translate(-50%,-50%);
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Forehead protector on bj card */
+  .protector{
+    position:absolute;left:14px;bottom:96px;
+    width:48px;height:48px;
+    background:
+      linear-gradient(135deg,#aaa 0 6px,#777 6px 12px,#aaa 12px 18px,#777 18px 24px,#aaa 24px 30px,#777 30px 36px,#aaa 36px 42px,#777 42px 48px);
+    border:2px solid var(--ink);
+    box-shadow:0 0 0 2px var(--ink) inset;
+    image-rendering:pixelated;
+    opacity:.9;
+  }
+  .protector::after{
+    content:"♥";position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    font-size:24px;color:var(--red);
+    background:var(--paper);
+    width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--ink);
+    border-radius:2px;
+  }
+
+  /* === FOOTER === */
+  footer{margin-top:32px;text-align:center;color:#5a7868;font-size:11px;font-family:'Courier New',monospace;letter-spacing:.5px}
+  footer a{color:var(--glow);text-decoration:none;border-bottom:1px dotted var(--leaves-d)}
+  footer .credit{display:block;margin-top:4px;color:#3a5b45}
+
+  /* === CRAFTING TABLE hint === */
+  .craft-hint{
+    margin-top:22px;font-family:'Courier New',monospace;font-size:11px;
+    color:#7d8c7d;letter-spacing:.5px;text-align:center;
+  }
+  .craft-hint b{color:var(--orange)}
+
+  @media (max-width:520px){
+    .banner h1{font-size:18px}
+    .hud-bar{width:60px}
+    .sharingan,.protector{display:none}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🎮 Light Games</h1>
-  <p class="sub">Маленькая коллекция HTML-игр. Открой и играй.</p>
-  <div class="grid">
-    <a class="card" href="blackjack.html">
-      <span class="emoji">🃏</span>
-      <h2>Blackcheck</h2>
-      <p>Блэкджек против дилера. Классика на зелёном сукне. Мобильно, без регистрации.</p>
-    </a>
-    <a class="card" href="uno-game.html">
-      <span class="emoji">🎴</span>
-      <h2>UNO</h2>
-      <p>UNO против бота. Карты, цвета, специальные действия. Играется на телефоне одной рукой.</p>
-    </a>
+
+  <!-- HEADER -->
+  <header class="head">
+    <div class="banner" role="img" aria-label="Hidden Leaf Village banner">
+      <h1>🍃 LIGHT <span>GAMES</span> — 隠れの里 🍃</h1>
+    </div>
+    <p class="sub">Маленькая коллекция <b>HTML-игр</b> в эстетике <b>Наруто × Minecraft</b>. Открыл — играй, без регистрации и рекламы.</p>
+  </header>
+
+  <!-- HUD -->
+  <div class="hud" aria-hidden="true">
+    <div class="hud-pill"><span class="ico">❤</span><div class="hud-bar hp-bar"><i></i></div></div>
+    <div class="hud-pill"><span class="ico">💧</span><div class="hud-bar ck-bar"><i></i></div></div>
+    <div class="hud-pill"><span class="ico">⚡</span><div class="hud-bar xp-bar"><i></i></div></div>
   </div>
+
+  <!-- GAMES GRID -->
+  <div class="grid">
+
+    <!-- BLACKJACK -->
+    <a class="card card-bj" href="blackjack.html" aria-label="Открыть Blackjack">
+      <div class="card-head">
+        <div class="headband"><div class="plate"></div></div>
+      </div>
+      <div class="protector" title="Защитный знак"></div>
+      <div class="card-body">
+        <h2>Blackjack<span class="jp">ブラックジャック</span></h2>
+        <p>Классический блек-джек против дилера. Зелёное сукно, нервы, 21 на руках. Чакры не нужны — нужна удача и холодная голова.</p>
+        <div class="chips">
+          <span class="chip c-orange">1 игрок</span>
+          <span class="chip c-green">Оффлайн</span>
+          <span class="chip c-red">21</span>
+        </div>
+      </div>
+      <div class="play"><span>▶ Начать партию</span><span class="arrow"></span></div>
+    </a>
+
+    <!-- UNO -->
+    <a class="card card-uno" href="uno-game.html" aria-label="Открыть UNO">
+      <div class="card-head">
+        <div class="headband"><div class="plate"></div></div>
+      </div>
+      <div class="sharingan" title="Шаринган"></div>
+      <div class="card-body">
+        <h2>UNO<span class="jp">ウノ</span></h2>
+        <p>UNO против бота-капкена. Карты, цвета, спец-действия. Прочитай мысли соперника… ну или хотя бы подсмотри его карты.</p>
+        <div class="chips">
+          <span class="chip c-orange">2 игрока</span>
+          <span class="chip c-green">Бот</span>
+          <span class="chip c-red">Мобильно</span>
+        </div>
+      </div>
+      <div class="play"><span>▶ В бой</span><span class="arrow"></span></div>
+    </a>
+
+  </div>
+
+  <p class="craft-hint">[ <b>Crafted</b> in tsybriki/light_games · 2 / ∞ to go ]</p>
+
   <footer>
-    <a href="https://github.com/tsybriki/light_games">tsybriki/light_games</a> · MIT License
+    <a href="https://github.com/tsybriki/light_games">github.com/tsybriki/light_games</a>
+    <span class="credit">MIT License · 🍃 Believe it!</span>
   </footer>
+
 </div>
 </body>
 </html>
