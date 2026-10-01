@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>BLACKCHECK — против дилера</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0e1d12;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e8efe9;overflow:hidden;touch-action:none}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #top{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;background:linear-gradient(180deg,#1d3324,#15271a);border-bottom:1px solid #2c4a35;font-size:12px;flex-shrink:0}
+  .pill{background:#243d2c;border:1px solid #3a5b45;border-radius:999px;padding:4px 10px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
+  .pill.warn{background:#5a2b2b;border-color:#8a4040}
+  .pill.you{background:#2b4a5a;border-color:#408a8a}
+  .pill .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+  .grow{flex:1;min-width:0}
+
+  /* table felt */
+  #table{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-around;gap:10px;
+    background:radial-gradient(ellipse at center,#1c3526 0%,#0e1d12 70%);padding:14px 8px;position:relative;overflow:hidden}
+  .zone{display:flex;flex-direction:column;align-items:center;gap:8px;min-height:0}
+  .zone .label{font-size:11px;letter-spacing:1.5px;color:#8aa896;font-weight:700;text-transform:uppercase}
+  .zone .score{font-size:13px;font-weight:700;color:#cfd8d2;letter-spacing:.5px}
+  .zone .score.bust{color:#ff6b6b;animation:bustShake .45s ease}
+  .zone .score.bj{color:#fdd835;text-shadow:0 0 8px rgba(253,216,53,.5)}
+  .zone .score.win{color:#7ee08a}
+  .zone .score.lose{color:#e07e7e}
+  @keyframes bustShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+  .cards{display:flex;align-items:center;justify-content:center;gap:8px;min-height:var(--card-h, 110px)}
+  .card-slot{width:var(--card-w, 78px);height:var(--card-h, 112px);flex-shrink:0;position:relative}
+
+  /* center row: shoe + discard placeholder */
+  #center{display:flex;align-items:center;justify-content:center;gap:18px;flex:0 0 auto}
+  .shoe{display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.85}
+  .shoe .sub{font-size:10px;color:#8aa896;font-weight:600}
+  .deck-stack{position:relative;width:var(--shoe-w, 60px);height:var(--shoe-h, 86px);border-radius:6px;background:#1d1d1d;border:1px solid #333;
+    box-shadow:0 4px 10px rgba(0,0,0,.45)}
+  .deck-stack::after{content:"BLACKCHECK";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    color:#fdd835;font-weight:800;font-size:9px;letter-spacing:1px;opacity:.85}
+
+  /* action buttons */
+  #btns{display:flex;gap:10px;flex-shrink:0;padding:10px 12px;background:linear-gradient(0deg,#1d3324,#15271a);border-top:1px solid #2c4a35;justify-content:center}
+  .btn{background:#3a8c5c;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);transition:background .15s,transform .1s;min-width:96px}
+  .btn:hover{background:#46a36e}
+  .btn:active{transform:scale(.97)}
+  .btn.danger{background:#c44b3a}
+  .btn.danger:hover{background:#d55a47}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+
+  #msg{position:fixed;left:50%;top:54px;transform:translateX(-50%);background:rgba(0,0,0,.7);padding:8px 14px;border-radius:10px;font-size:13px;
+    font-weight:600;border:1px solid #3a5b45;max-width:80%;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;z-index:7}
+  #msg.show{opacity:1}
+
+  /* flying card overlay */
+  #fxOverlay{position:fixed;inset:0;pointer-events:none;z-index:6}
+
+  /* "BLACKJACK" winner banner — sits above the end-of-round overlay */
+  #bjBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%) scale(.4);z-index:40;
+    display:none;pointer-events:none}
+  #bjBanner.show{display:block;animation:bjBannerIn .9s cubic-bezier(.34,1.56,.64,1) forwards}
+  #bjBanner .ring{
+    width:300px;height:200px;border-radius:50%;
+    background:radial-gradient(ellipse at 50% 38%,#e53935 0%,#c62828 70%,#8a1c1c 100%);
+    border:5px solid #fff;box-shadow:0 0 0 4px #8a1c1c, 0 14px 40px rgba(0,0,0,.6),
+      inset 0 -16px 32px rgba(0,0,0,.4), inset 0 8px 14px rgba(255,255,255,.18);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#fff;font-weight:900;letter-spacing:1.5px;text-align:center;line-height:1.05;
+    text-shadow:0 2px 6px rgba(0,0,0,.55);
+  }
+  #bjBanner .ring .top{font-size:13px;letter-spacing:4px;font-weight:700;opacity:.95;margin-bottom:6px}
+  #bjBanner .ring .big{font-size:40px;letter-spacing:3px;text-shadow:0 3px 8px rgba(0,0,0,.6)}
+  #bjBanner .ring .bottom{font-size:12px;letter-spacing:3px;font-weight:700;opacity:.9;margin-top:6px}
+  #bjBanner .sub{position:absolute;left:50%;top:100%;transform:translate(-50%,10px);
+    font-size:13px;font-weight:700;color:#fdd835;letter-spacing:.8px;
+    background:rgba(0,0,0,.55);padding:5px 10px;border-radius:8px;border:1px solid #3a5b45;white-space:nowrap}
+  @keyframes bjBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+  /* end-of-round overlay */
+  #overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);z-index:30}
+  #overlay.show{display:flex}
+  #overlay .box{background:#1d3324;border:2px solid #3a5b45;border-radius:14px;padding:24px 32px;text-align:center;min-width:260px}
+  #overlay .big{font-size:22px;font-weight:800;letter-spacing:1px;margin-bottom:6px;white-space:pre-line}
+  #overlay .sub{font-size:13px;color:#cfd8d2;margin-bottom:14px;line-height:1.5}
+  #overlay .sub .reason{font-size:14px;font-weight:700;color:#cfd8d2;margin-bottom:4px;letter-spacing:.5px}
+  #overlay .sub .score-line{font-size:12px;color:#8aa896;font-weight:600}
+  #overlay .big.win{color:#7ee08a}
+  #overlay .big.lose{color:#e07e7e}
+  #overlay .big.push{color:#fdd835}
+  #overlay .big.bj{color:#fdd835;text-shadow:0 0 14px rgba(253,216,53,.55);font-size:30px;letter-spacing:2px;margin-bottom:8px}
+  #overlay button{background:#3a8c5c;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;margin:4px}
+  #overlay button:hover{background:#46a36e}
+  #overlay button.alt{background:#7a6043}
+  #overlay button.alt:hover{background:#8a6f50}
+
+  /* result pill animation */
+  .result-burst{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:42px;font-weight:900;
+    letter-spacing:2px;pointer-events:none;z-index:8;animation:burstFade 1.6s ease forwards}
+  .result-burst.win{color:#7ee08a;text-shadow:0 0 18px rgba(126,224,138,.6)}
+  .result-burst.lose{color:#e07e7e;text-shadow:0 0 18px rgba(224,126,126,.6)}
+  .result-burst.bj{color:#fdd835;text-shadow:0 0 22px rgba(253,216,53,.7)}
+  .result-burst.push{color:#cfd8d2}
+  .result-burst.bust{color:#ff6b6b;text-shadow:0 0 18px rgba(255,107,107,.7)}
+  .result-burst.twenty-one{color:#fdd835;text-shadow:0 0 22px rgba(253,216,53,.65);font-size:56px}
+  @keyframes burstFade{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) translateY(-12px) scale(1)}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <span class="pill warn" id="dealerPill">🤵 <span id="dealerScore">0</span></span>
+    <span class="grow"></span>
+    <span class="pill" id="deckPill">🃏 <span id="deckCount">312</span></span>
+    <span class="pill" id="rulePill">D17 · BJ 3:2</span>
+    <span class="grow"></span>
+    <span class="pill you" id="youPill">👤 <span id="youScore">0</span></span>
+  </div>
+
+  <div id="table">
+    <div class="zone" id="dealerZone">
+      <div class="label">ДИЛЕР</div>
+      <div class="cards" id="dealerCards"></div>
+      <div class="score" id="dealerTotal">—</div>
+    </div>
+
+    <div id="center">
+      <div class="shoe">
+        <div class="deck-stack" id="shoeEl"></div>
+        <div class="sub">БАТИНЬЯК</div>
+      </div>
+    </div>
+
+    <div class="zone" id="playerZone">
+      <div class="label">ИГРОК</div>
+      <div class="cards" id="playerCards"></div>
+      <div class="score" id="playerTotal">—</div>
+    </div>
+  </div>
+
+  <div id="btns">
+    <button class="btn" id="hitBtn">⚡ ЕЩЁ</button>
+    <button class="btn danger" id="standBtn">✋ ХВАТИТ</button>
+  </div>
+</div>
+
+<canvas id="fxOverlay"></canvas>
+<div id="msg"></div>
+
+<div id="overlay">
+  <div class="box">
+    <div class="big" id="overText">ПОБЕДА!</div>
+    <div class="sub" id="overSub"></div>
+    <div>
+      <button id="overBtn">Новая раздача</button>
+      <button class="alt" id="overResetBtn">Сброс счёта</button>
+    </div>
+  </div>
+</div>
+
+<div id="bjBanner" aria-hidden="true">
+  <div class="ring">
+    <span class="top">НАТУРАЛЬНЫЙ</span>
+    <span class="big">BLACKJACK</span>
+    <span class="bottom">21 · +2 ОЧКА</span>
+  </div>
+  <div class="sub" id="bjBannerSub"></div>
+</div>
+
+<script>
+'use strict';
+
+// ===== Deck / cards =====
+const SUITS = ['♠','♥','♦','♣'];
+const SUIT_COLOR = { '♠':'black', '♣':'black', '♥':'red', '♦':'red' };
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+function makeShoe(nDecks) {
+  const cards = [];
+  for (let d = 0; d < nDecks; d++) {
+    for (const s of SUITS) for (const r of RANKS) {
+      let value;
+      if (r === 'A') value = 11;
+      else if (r === 'J' || r === 'Q' || r === 'K') value = 10;
+      else value = parseInt(r, 10);
+      cards.push({ suit: s, rank: r, value, color: SUIT_COLOR[s] });
+    }
+  }
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+
+// Hand total with proper ace handling (1 or 11, whichever keeps the hand ≤ 21).
+// "Soft" means at least one ace is still counted as 11 (after reduction).
+function handTotal(hand) {
+  let total = 0, aces = 0;
+  for (const c of hand) {
+    total += c.value;
+    if (c.rank === 'A') aces++;
+  }
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  // After reduction: aces is the count of aces still counted as 11.
+  // Soft iff at least one ace remains at 11 (and total ≤ 21, which it does by construction).
+  const soft = aces > 0;
+  return { total, soft };
+}
+
+// ===== Game state =====
+const N_DECKS = 6;
+let shoe = makeShoe(N_DECKS);
+let playerHand = [];
+let dealerHand = [];
+let phase = 'idle';          // 'idle' | 'player' | 'dealer' | 'done'
+let score = { player: 0, dealer: 0 };
+let fxAnims = [];
+let fxCv, fxCtx;
+
+// ===== Card art (canvas) =====
+function drawCardArt(ctx, card, x, y, w, h, faceDown) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  roundRect(ctx, x, y, w, h, 9);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  if (faceDown) {
+    ctx.fillStyle = '#1d1d1d';
+    roundRect(ctx, x+2, y+2, w-4, h-4, 7);
+    ctx.fill();
+    ctx.save();
+    roundRect(ctx, x+2, y+2, w-4, h-4, 7);
+    ctx.clip();
+    ctx.fillStyle = '#243d2c';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#3a8c5c';
+    ctx.font = 'bold ' + Math.floor(h*0.20) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('BC', x+w/2, y+h/2);
+    ctx.fillStyle = '#fdd835';
+    ctx.font = 'bold ' + Math.floor(h*0.10) + 'px sans-serif';
+    ctx.fillText('CHECK', x+w/2, y+h/2 + h*0.18);
+    ctx.restore();
+    ctx.restore();
+    return;
+  }
+
+  const isRed = card.color === 'red';
+  ctx.fillStyle = isRed ? '#e53935' : '#1d1d1d';
+
+  // big center suit
+  ctx.font = (h*0.40) + 'px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(card.suit, x+w/2, y+h/2);
+
+  // corner rank + suit (top-left)
+  ctx.font = 'bold ' + Math.floor(h*0.18) + 'px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(card.rank, x + 7, y + 5);
+  ctx.font = (h*0.14) + 'px serif';
+  ctx.textBaseline = 'top';
+  ctx.fillText(card.suit, x + 7, y + 5 + h*0.18);
+
+  // bottom-right corner (rotated)
+  ctx.save();
+  ctx.translate(x + w - 7, y + h - 7);
+  ctx.rotate(Math.PI);
+  ctx.font = 'bold ' + Math.floor(h*0.18) + 'px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = isRed ? '#e53935' : '#1d1d1d';
+  ctx.fillText(card.rank, 0, 0);
+  ctx.font = (h*0.14) + 'px serif';
+  ctx.fillText(card.suit, 0, 0 + h*0.18);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+// ===== Layout =====
+let layout = { cardW: 78, cardH: 112 };
+function fitLayout() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  // 8 cards fit horizontally at most for the player (worst case).
+  // Use the larger of dealer (up to ~7) and player (up to ~8) hand sizes.
+  const maxCards = 8;
+  const sidePad = 16;
+  const gap = 8;
+  let w = Math.floor((vw - sidePad*2 - gap*(maxCards-1)) / maxCards);
+  w = Math.min(w, 110);
+  w = Math.max(48, w);
+  const h = Math.round(w * 1.44);
+  layout.cardW = w;
+  layout.cardH = h;
+  const root = document.documentElement.style;
+  root.setProperty('--card-w', w + 'px');
+  root.setProperty('--card-h', h + 'px');
+  root.setProperty('--shoe-w', Math.round(w*0.78) + 'px');
+  root.setProperty('--shoe-h', Math.round(h*0.78) + 'px');
+}
+window.addEventListener('resize', () => { fitLayout(); render(); });
+
+// ===== Animation =====
+function sizeFxOverlay() {
+  if (!fxCv) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  fxCv.width  = Math.round(window.innerWidth  * dpr);
+  fxCv.height = Math.round(window.innerHeight * dpr);
+  fxCv.style.width  = window.innerWidth  + 'px';
+  fxCv.style.height = window.innerHeight + 'px';
+  if (fxCtx) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function fxTick(now) {
+  if (!fxCtx) { requestAnimationFrame(fxTick); return; }
+  fxCtx.clearRect(0, 0, fxCv.clientWidth, fxCv.clientHeight);
+  if (fxAnims.length === 0) { requestAnimationFrame(fxTick); return; }
+  const remaining = [];
+  const W = layout.cardW, H = layout.cardH;
+  for (const fx of fxAnims) {
+    const t = (now - fx.t0) / fx.dur;
+    if (t >= 1) continue;
+    remaining.push(fx);
+    const e = 1 - Math.pow(1 - t, 3);
+    const x = fx.x0 + (fx.x1 - fx.x0) * e;
+    const arc = Math.sin(t * Math.PI) * -70;
+    const y = fx.y0 + (fx.y1 - fx.y0) * e + arc;
+    const rot = fx.rot(t);
+    const pop = t < 0.15 ? (1 + (1 - t/0.15)*0.25) : 1;
+    fxCtx.save();
+    fxCtx.translate(x, y);
+    fxCtx.rotate(rot);
+    fxCtx.scale(pop, pop);
+    drawCardArt(fxCtx, fx.card, -W/2, -H/2, W, H, !!fx.faceDown);
+    fxCtx.restore();
+  }
+  fxAnims = remaining;
+  requestAnimationFrame(fxTick);
+}
+function flingCard(card, from, to, dur, opts) {
+  opts = opts || {};
+  const endRot = (Math.random() - 0.5) * 0.22;
+  const spinRotations = (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 1.2);
+  const endDx = (Math.random() - 0.5) * 8;
+  const endDy = (Math.random() - 0.5) * 6;
+  fxAnims.push({
+    card, faceDown: !!opts.faceDown,
+    x0: from.x, y0: from.y,
+    x1: to.x + endDx, y1: to.y + endDy,
+    dur, t0: performance.now(),
+    rot: (t) => spinRotations * Math.PI * 2 * t + endRot * (1 - Math.pow(1-t, 3)),
+  });
+  if (!fxCv) {
+    fxCv = document.getElementById('fxOverlay');
+    sizeFxOverlay();
+    fxCtx = fxCv.getContext('2d');
+    requestAnimationFrame(fxTick);
+  } else {
+    sizeFxOverlay();
+  }
+}
+
+// Returns the center of the slot the *next* card will land in for a hand.
+// Slot index is the 0-based position the card will have once drawn.
+function slotCenter(zoneId, idx) {
+  const zone = document.getElementById(zoneId);
+  const cards = zone.querySelectorAll('.card-slot');
+  if (cards[idx]) {
+    const r = cards[idx].getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  // Fallback to zone center if slot not yet rendered
+  const r = zone.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+// Source: shoe stack center
+function shoeCenter() {
+  const el = document.getElementById('shoeEl');
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+// ===== Dealing =====
+function drawFromShoe() {
+  if (shoe.length < 15) reshuffleShoe();
+  return shoe.pop();
+}
+function reshuffleShoe() {
+  shoe = makeShoe(N_DECKS);
+}
+
+function newRound() {
+  if (shoe.length < 15) reshuffleShoe();
+  playerHand = [];
+  dealerHand = [];
+  phase = 'dealing';
+  updateMsg('Раздача…');
+  dealSequence();
+}
+
+function dealSequence() {
+  // 4 cards: P, D, P, D — last dealer card stays face-down
+  const seq = [
+    { who: 'player', faceDown: false },
+    { who: 'dealer', faceDown: false },
+    { who: 'player', faceDown: false },
+    { who: 'dealer', faceDown: true  },
+  ];
+  let i = 0;
+  const step = () => {
+    if (i >= seq.length) {
+      // Done dealing
+      phase = 'player';
+      const ph = handTotal(playerHand);
+      // Natural blackjack check on player
+      if (playerHand.length === 2 && ph.total === 21 && !ph.soft /* no, ignore */) {
+        // Player has natural BJ. Dealer peeks for BJ.
+        const dh = handTotal(dealerHand);
+        if (dh.total === 21) {
+          // Push: both have BJ
+          revealDealerHole();
+          setTimeout(() => settle('push'), 600);
+          return;
+        } else {
+          revealDealerHole();
+          setTimeout(() => settle('bj'), 600);
+          return;
+        }
+      }
+      // No player BJ. Player plays.
+      updateMsg('Твой ход — ЕЩЁ или ХВАТИТ.');
+      render();
+      enableBtns(true);
+      return;
+    }
+    const stepDef = seq[i++];
+    const card = drawFromShoe();
+    const hand = stepDef.who === 'player' ? playerHand : dealerHand;
+    hand.push(card);
+    // Animate from shoe to the correct slot
+    const slotIdx = hand.length - 1;
+    const zoneId = stepDef.who === 'player' ? 'playerZone' : 'dealerZone';
+    // Render first so the slot exists
+    render();
+    const from = shoeCenter();
+    const to   = slotCenter(zoneId, slotIdx);
+    flingCard(card, from, to, 380, { faceDown: stepDef.faceDown });
+    setTimeout(step, 250);
+  };
+  step();
+}
+
+function revealDealerHole() {
+  // The dealer's 2nd card was dealt face-down. Reveal it.
+  const card = dealerHand[1];
+  if (!card) return;
+  const from = slotCenter('dealerZone', 1);
+  // Flip in place: just draw a brief "flip" by re-dealing from shoe center
+  const to = from;
+  fxAnims = fxAnims.filter(fx => fx.card !== card); // any pending anim for this card
+  flingCard(card, from, to, 300, { faceDown: false });
+}
+
+function enableBtns(on) {
+  document.getElementById('hitBtn').disabled = !on;
+  document.getElementById('standBtn').disabled = !on;
+}
+
+// ===== Player actions =====
+function playerHit() {
+  if (phase !== 'player') return;
+  enableBtns(false);
+  const card = drawFromShoe();
+  playerHand.push(card);
+  render();
+  const from = shoeCenter();
+  const to = slotCenter('playerZone', playerHand.length - 1);
+  flingCard(card, from, to, 380, { faceDown: false });
+  setTimeout(() => {
+    const t = handTotal(playerHand);
+    if (t.total > 21) {
+      // Bust — show dealer briefly, then settle
+      phase = 'dealer';
+      updateMsg('Перебор! 👎');
+      bustShake();
+      setTimeout(() => {
+        revealDealerHole();
+        setTimeout(() => settle('bust'), 600);
+      }, 700);
+      return;
+    }
+    if (t.total === 21) {
+      // Hit to exactly 21 on 3+ cards: flash "21!" burst and auto-stand.
+      // (Natural BJ on 2 cards is handled in dealSequence() and never reaches here.)
+      showBurst('21!', 'twenty-one');
+      phase = 'dealer';
+      setTimeout(() => {
+        revealDealerHole();
+        setTimeout(dealerTurn, 600);
+      }, 900);
+      return;
+    }
+    // Continue playing
+    updateMsg('Ещё?');
+    enableBtns(true);
+    render();
+  }, 450);
+}
+
+function playerStand() {
+  if (phase !== 'player') return;
+  enableBtns(false);
+  phase = 'dealer';
+  revealDealerHole();
+  setTimeout(dealerTurn, 600);
+}
+
+// ===== Dealer =====
+function dealerTurn() {
+  updateMsg('Ход дилера…');
+  const dealOne = () => {
+    const t = handTotal(dealerHand);
+    // Hit on total ≤ 16; stand on 17+ (including soft 17).
+    const shouldHit = t.total < 17;
+    if (!shouldHit) {
+      setTimeout(() => settle('dealer'), 400);
+      return;
+    }
+    const card = drawFromShoe();
+    dealerHand.push(card);
+    render();
+    const from = shoeCenter();
+    const to = slotCenter('dealerZone', dealerHand.length - 1);
+    flingCard(card, from, to, 380, { faceDown: false });
+    setTimeout(dealOne, 480);
+  };
+  setTimeout(dealOne, 300);
+}
+
+// ===== Settle =====
+function settle(reason) {
+  phase = 'done';
+  const p = handTotal(playerHand);
+  const d = handTotal(dealerHand);
+  const pBust = p.total > 21;
+  const dBust = d.total > 21;
+  // Result string + score delta + visual flavor
+  let outcomeKind, scoreText, subText, bigText, burst;
+  let delta = 0;
+  const playerBJ = playerHand.length === 2 && p.total === 21;
+  const playerNonNatural21 = p.total === 21 && playerHand.length > 2;
+  if (pBust) {
+    outcomeKind = 'lose'; bigText = 'ПЕРЕБОР'; subText = 'Слишком много'; burst = 'bust';
+    delta = -1; score.dealer += 1;
+  } else if (reason === 'bj') {
+    outcomeKind = 'bj';
+    // Natural BJ: BIG yellow "BLACKJACK" headline, with the reason below.
+    bigText = 'BLACKJACK';
+    subText = 'Блэкджек!';
+    burst = 'bj';
+    delta = +2; score.player += 2;
+  } else if (dBust) {
+    // Player won — use big "21!" if they hit to 21 on 3+ cards, otherwise generic "ПОБЕДА".
+    outcomeKind = 'win';
+    bigText = playerNonNatural21 ? '21!' : 'ПОБЕДА';
+    subText = 'Дилер перебрал';
+    burst = playerNonNatural21 ? 'twenty-one' : 'win';
+    delta = +1; score.player += 1;
+  } else if (p.total > d.total) {
+    outcomeKind = 'win';
+    bigText = playerNonNatural21 ? '21!' : 'ПОБЕДА';
+    subText = 'Дилер не добрал';
+    burst = playerNonNatural21 ? 'twenty-one' : 'win';
+    delta = +1; score.player += 1;
+  } else if (p.total < d.total) {
+    outcomeKind = 'lose'; bigText = 'ПРОИГРЫШ'; subText = 'Дилер добрал больше'; burst = 'lose';
+    delta = -1; score.dealer += 1;
+  } else {
+    outcomeKind = 'push'; bigText = 'НИЧЬЯ'; subText = 'Равный счёт'; burst = 'push';
+    delta = 0;
+  }
+  scoreText = `Игрок ${score.player} : ${score.dealer} Дилер\nОчки раздачи: ${delta>=0?'+':''}${delta}`;
+  // Flash result burst
+  showBurst(bigText, burst);
+  // Show overlay with buttons
+  setTimeout(() => {
+    const over = document.getElementById('overlay');
+    const big = document.getElementById('overText');
+    big.textContent = bigText;
+    big.className = 'big ' + outcomeKind;
+    // Subtext = reason ("Дилер не добрал" / "Дилер перебрал" / etc.) above the score line.
+    document.getElementById('overSub').innerHTML =
+      `<div class="reason">${subText}</div><div class="score-line">Игрок ${score.player} : ${score.dealer} Дилер · Раздача: ${delta>=0?'+':''}${delta}</div>`;
+    over.classList.add('show');
+  }, 400);
+  // If the player ended with exactly 21 (natural BJ OR a 3+ card 21), show the red
+  // "BLACKJACK" banner above the overlay. Plain wins/losses/pushes don't get it.
+  const isTwentyOne = (outcomeKind === 'bj') || (bigText === '21!');
+  if (isTwentyOne) {
+    const banner = document.getElementById('bjBanner');
+    const ring = banner.querySelector('.ring');
+    // Different text inside the ring depending on natural BJ vs hit-to-21.
+    if (outcomeKind === 'bj') {
+      ring.innerHTML =
+        '<span class="top">НАТУРАЛЬНЫЙ</span>' +
+        '<span class="big">BLACKJACK</span>' +
+        '<span class="bottom">21 · +2 ОЧКА</span>';
+      document.getElementById('bjBannerSub').textContent = 'Блэкджек!';
+    } else {
+      ring.innerHTML =
+        '<span class="top">РОВНО</span>' +
+        '<span class="big">21</span>' +
+        '<span class="bottom">+1 ОЧКО</span>';
+      document.getElementById('bjBannerSub').textContent = subText;
+    }
+    banner.classList.remove('show');
+    void banner.offsetWidth; // restart animation
+    banner.classList.add('show');
+  }
+  // Color totals based on outcome
+  const pt = document.getElementById('playerTotal');
+  const dt = document.getElementById('dealerTotal');
+  pt.classList.remove('win','lose','bj','bust');
+  dt.classList.remove('win','lose','bj','bust');
+  if (outcomeKind === 'win' || outcomeKind === 'bj') pt.classList.add(outcomeKind);
+  else if (outcomeKind === 'lose') dt.classList.add('lose');
+  render();
+}
+
+function bustShake() {
+  const pt = document.getElementById('playerTotal');
+  pt.classList.add('bust');
+  setTimeout(() => pt.classList.remove('bust'), 500);
+}
+
+// Center-screen result burst. Reusable from both mid-hand (auto-stand at 21)
+// and end-of-round settle().
+function showBurst(text, kind) {
+  const el = document.createElement('div');
+  el.className = 'result-burst ' + kind;
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+// ===== Render =====
+function render() {
+  fitLayout();
+
+  // Score pill
+  document.getElementById('youScore').textContent = score.player;
+  document.getElementById('dealerScore').textContent = score.dealer;
+  document.getElementById('deckCount').textContent = shoe.length;
+
+  // Player slots (pre-allocate up to current hand length; pad with empty slots for layout)
+  const pDiv = document.getElementById('playerCards');
+  pDiv.innerHTML = '';
+  // Reserve at least 7 visual slots so layout doesn't jump when a card lands
+  const playerSlots = Math.max(playerHand.length, 7);
+  for (let i = 0; i < playerSlots; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'card-slot';
+    if (playerHand[i]) {
+      const cv = document.createElement('canvas');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width  = Math.round(layout.cardW * dpr);
+      cv.height = Math.round(layout.cardH * dpr);
+      cv.style.width  = layout.cardW + 'px';
+      cv.style.height = layout.cardH + 'px';
+      const cx = cv.getContext('2d');
+      cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawCardArt(cx, playerHand[i], 0, 0, layout.cardW, layout.cardH, false);
+      slot.appendChild(cv);
+    }
+    pDiv.appendChild(slot);
+  }
+
+  // Dealer slots
+  const dDiv = document.getElementById('dealerCards');
+  dDiv.innerHTML = '';
+  const dealerSlots = Math.max(dealerHand.length, 7);
+  for (let i = 0; i < dealerSlots; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'card-slot';
+    if (dealerHand[i]) {
+      // Hide the dealer's 2nd card until reveal phase
+      const hideHole = (i === 1 && phase !== 'done' && phase !== 'dealer');
+      if (!hideHole) {
+        const cv = document.createElement('canvas');
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cv.width  = Math.round(layout.cardW * dpr);
+        cv.height = Math.round(layout.cardH * dpr);
+        cv.style.width  = layout.cardW + 'px';
+        cv.style.height = layout.cardH + 'px';
+        const cx = cv.getContext('2d');
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawCardArt(cx, dealerHand[i], 0, 0, layout.cardW, layout.cardH, false);
+        slot.appendChild(cv);
+      } else {
+        // Back of card placeholder (the actual anim handles the visual)
+        const cv = document.createElement('canvas');
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cv.width  = Math.round(layout.cardW * dpr);
+        cv.height = Math.round(layout.cardH * dpr);
+        cv.style.width  = layout.cardW + 'px';
+        cv.style.height = layout.cardH + 'px';
+        const cx = cv.getContext('2d');
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawCardArt(cx, dealerHand[1], 0, 0, layout.cardW, layout.cardH, true);
+        slot.appendChild(cv);
+      }
+    }
+    dDiv.appendChild(slot);
+  }
+
+  // Totals
+  const pt = document.getElementById('playerTotal');
+  if (playerHand.length === 0) pt.textContent = '—';
+  else {
+    const t = handTotal(playerHand);
+    pt.textContent = playerHand.length === 2 && t.total === 21 ? '21 · BLACKJACK' : (t.total + (t.soft && t.total !== 21 ? ' (мягко)' : ''));
+  }
+  const dt = document.getElementById('dealerTotal');
+  if (dealerHand.length === 0) dt.textContent = '—';
+  else if (phase === 'player' || phase === 'dealing') {
+    // Only first card visible (others face-down). Show that card's value + " + ?"
+    const visible = dealerHand[0];
+    dt.textContent = visible.value + ' + ?';
+  } else {
+    const t = handTotal(dealerHand);
+    if (t.total > 21) dt.textContent = t.total + ' · ПЕРЕБОР';
+    else dt.textContent = t.total + (t.soft && t.total !== 21 ? ' (мягко)' : '');
+  }
+}
+
+// ===== UI wiring =====
+document.getElementById('hitBtn').onclick = playerHit;
+document.getElementById('standBtn').onclick = playerStand;
+document.getElementById('overBtn').onclick = () => {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('bjBanner').classList.remove('show');
+  newRound();
+};
+document.getElementById('overResetBtn').onclick = () => {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('bjBanner').classList.remove('show');
+  score = { player: 0, dealer: 0 };
+  shoe = makeShoe(N_DECKS);
+  newRound();
+};
+
+// ===== Msg helper =====
+let msgTimer = null;
+function updateMsg(text) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ===== Keyboard =====
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'h' || e.key === 'H' || e.key === 'ArrowRight') playerHit();
+  else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowLeft') playerStand();
+  else if (e.key === ' ' || e.key === 'Enter') {
+    if (phase === 'done' || phase === 'idle') {
+      document.getElementById('overBtn').click();
+    } else if (phase === 'player') playerHit();
+  }
+});
+
+// ===== Start =====
+fitLayout();
+render();
+enableBtns(false);
+setTimeout(newRound, 350);
+</script>
+</body>
+</html>

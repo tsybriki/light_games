@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Light Games</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(135deg,#0e1d12 0%,#15271a 50%,#1d3324 100%);color:#e8efe9;-webkit-tap-highlight-color:transparent}
+  .wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px}
+  h1{margin:0 0 6px;font-size:32px;font-weight:800;letter-spacing:-.5px}
+  p.sub{margin:0 0 32px;color:#8aa896;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;max-width:760px;width:100%}
+  .card{background:rgba(36,61,44,.5);border:1px solid #3a5b45;border-radius:16px;padding:24px;text-decoration:none;color:inherit;transition:transform .18s,border-color .18s,background .18s;display:block}
+  .card:hover{transform:translateY(-4px);border-color:#7ee08a;background:rgba(58,140,92,.35)}
+  .card:active{transform:translateY(-1px) scale(.99)}
+  .emoji{font-size:48px;line-height:1;margin-bottom:12px;display:block}
+  .card h2{margin:0 0 8px;font-size:20px;font-weight:700}
+  .card p{margin:0;color:#b8c8be;font-size:13px;line-height:1.5}
+  footer{margin-top:32px;color:#5a7868;font-size:11px;text-align:center}
+  footer a{color:#8aa896;text-decoration:none;border-bottom:1px dotted #3a5b45}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎮 Light Games</h1>
+  <p class="sub">Маленькая коллекция HTML-игр. Открой и играй.</p>
+  <div class="grid">
+    <a class="card" href="blackjack.html">
+      <span class="emoji">🃏</span>
+      <h2>Blackcheck</h2>
+      <p>Блэкджек против дилера. Классика на зелёном сукне. Мобильно, без регистрации.</p>
+    </a>
+    <a class="card" href="uno-game.html">
+      <span class="emoji">🎴</span>
+      <h2>UNO</h2>
+      <p>UNO против бота. Карты, цвета, специальные действия. Играется на телефоне одной рукой.</p>
+    </a>
+  </div>
+  <footer>
+    <a href="https://github.com/tsybriki/light_games">tsybriki/light_games</a> · MIT License
+  </footer>
+</div>
+</body>
+</html>

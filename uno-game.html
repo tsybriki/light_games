@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>UNO — против бота</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0e1d12;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e8efe9;overflow:hidden;touch-action:none}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #top{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;background:linear-gradient(180deg,#1d3324,#15271a);border-bottom:1px solid #2c4a35;font-size:12px;flex-shrink:0}
+  .pill{background:#243d2c;border:1px solid #3a5b45;border-radius:999px;padding:4px 10px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
+  .pill.warn{background:#5a2b2b;border-color:#8a4040}
+  .pill.you{background:#2b4a5a;border-color:#408a8a}
+  .pill.hint-toggle{cursor:pointer;font-size:14px;padding:4px 9px;background:#243d2c;border:1px solid #3a5b45;transition:background .15s,transform .1s}
+  .pill.hint-toggle:hover{background:#2e4d36}
+  .pill.hint-toggle:active{transform:scale(.92)}
+  .pill.hint-toggle.on{background:#fdd835;color:#222;border-color:#fff176;box-shadow:0 0 8px rgba(253,216,53,.5)}
+  .grow{flex:1;min-width:0}
+  #botHand{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 8px;background:linear-gradient(180deg,#15271a,#1d3324);border-bottom:1px solid #2c4a35;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;height:var(--botrow-h, 100px)}
+  #botHand .bcard{flex-shrink:0;width:var(--botcard-w, 56px);height:var(--botcard-h, 80px);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+  #playArea{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at center,#1c3526 0%,#0e1d12 70%);position:relative}
+  .row{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:nowrap}
+  .pile{position:relative;width:var(--card-w, 100px);height:var(--card-h, 145px)}
+  .pile.big{width:var(--big-w, 130px);height:var(--big-h, 188px)}
+  .pile .label{position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:11px;color:#8aa896;letter-spacing:1px}
+  .pile canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  #peekPile{width:var(--peek-w, 122px);height:var(--peek-h, 176px);cursor:pointer;position:relative}
+  #peekPile.disabled{opacity:.5;cursor:not-allowed}
+  #peekPile::after{content:"Тап = взять";position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-size:10px;color:#fdd835;font-weight:700;letter-spacing:.5px;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+  #deckCount{position:absolute;bottom:-46px;left:0;right:0;text-align:center;font-size:11px;color:#8aa896;font-weight:600}
+  #peekPile .label{font-size:10px}
+  #lastPlayed{position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid #3a5b45;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.4px;white-space:nowrap;display:none;z-index:5}
+  #lastPlayed.show{display:block;animation:lpFade 2.4s ease forwards}
+  @keyframes lpFade{0%{opacity:0;transform:translate(-50%,6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-4px)}}
+  #hand{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:linear-gradient(0deg,#1d3324,#15271a);border-top:1px solid #2c4a35;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;height:var(--handrow-h, 140px)}
+  .hcard{flex-shrink:0;width:var(--handcard-w, 84px);height:var(--handcard-h, 120px);border-radius:9px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.4);transition:transform .15s,box-shadow .15s;position:relative}
+  .hcard.playable{box-shadow:0 0 0 3px #fdd835,0 6px 14px rgba(253,216,53,.35);transform:translateY(-6px)}
+  .hcard.playable:hover{transform:translateY(-14px);box-shadow:0 0 0 3px #fff176,0 10px 20px rgba(253,216,53,.5)}
+  .hcard.disabled{cursor:not-allowed}
+  .hcard.disabled:hover{transform:none;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+  /* When hint is OFF, all cards look equally accessible — no yellow frame */
+  #hand.noHint .hcard.playable{box-shadow:0 4px 10px rgba(0,0,0,.4);transform:none}
+  #hand.noHint .hcard.playable:hover{transform:translateY(-10px);box-shadow:0 8px 16px rgba(0,0,0,.5)}
+  #btns{position:fixed;right:10px;bottom:calc(var(--handrow-h, 140px) + 16px);display:flex;flex-direction:column;gap:8px;z-index:6}
+  #fxOverlay{position:fixed;inset:0;pointer-events:none;z-index:4}
+  .btn{background:#3a8c5c;color:#fff;border:none;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:background .15s,transform .1s;min-width:90px}
+  #unoBtn{padding:14px 18px;font-size:16px;min-width:110px;letter-spacing:1px}
+  .btn:hover{background:#46a36e}
+  .btn:active{transform:scale(.97)}
+  .btn.danger{background:#ff2e2e;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);border:2px solid #ffb3b3;animation:unoPulse 1.4s ease-in-out infinite}
+  .btn.danger:hover{background:#ff4848;border-color:#fff;transform:scale(1.05)}
+  @keyframes unoPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,46,46,.6),0 2px 6px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 10px rgba(255,46,46,0),0 2px 6px rgba(0,0,0,.4)}}
+  .btn.danger:disabled{animation:none;background:#7a3a3a;border-color:#5a2828;color:#ccc}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  #msg{position:fixed;left:50%;top:54px;transform:translateX(-50%);background:rgba(0,0,0,.7);padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid #3a5b45;max-width:80%;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;z-index:7}
+  #msg.show{opacity:1}
+  #colorPick{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:20}
+  #colorPick.show{display:flex}
+  #colorPick .panel{background:#1d3324;border:2px solid #3a5b45;border-radius:14px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  #colorPick .title{font-size:14px;font-weight:700;letter-spacing:1px}
+  #colorPick .row{display:flex;gap:10px}
+  #colorPick .swatch{width:54px;height:54px;border-radius:50%;cursor:pointer;border:3px solid rgba(255,255,255,.2);transition:transform .15s,border-color .15s}
+  #colorPick .swatch:hover{transform:scale(1.1);border-color:#fff}
+  #overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);z-index:30}
+  #overlay.show{display:flex}
+  #overlay .box{background:#1d3324;border:2px solid #3a5b45;border-radius:14px;padding:24px 32px;text-align:center;min-width:240px}
+  #overlay .big{font-size:22px;font-weight:800;letter-spacing:1px;margin-bottom:14px}
+  #overlay .big.win{color:#7ee08a}
+  #overlay .big.lose{color:#e07e7e}
+  #overlay button{background:#3a8c5c;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer}
+  #overlay button:hover{background:#46a36e}
+  #dir{width:14px;height:14px;display:inline-block;vertical-align:-2px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <span class="pill warn" id="aiPill">🤖 <span id="aiCount">7</span> · <span id="aiScore">0</span></span>
+    <span class="pill" id="colorPill"><span id="colorDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53935;vertical-align:-1px;margin-right:4px"></span><span id="colorName">Красный</span></span>
+    <button class="pill hint-toggle" id="hintBtn" title="Подсветка карт, которые можно сыграть">💡</button>
+    <span class="grow"></span>
+    <span class="pill" id="dirPill"><svg id="dir" viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h12.17l-5.59-5.59L12 4l8 8-8 8-1.41-1.41L16.17 13H4z"/></svg></span>
+    <span class="pill you" id="youPill">👤 <span id="youCount">7</span> · <span id="youScore">0</span></span>
+    <span class="pill" id="aggrPill" title="Агрессия бота — растёт после твоих побед">🤖🔥 <span id="aggrVal">0%</span></span>
+  </div>
+  <div id="botHand"></div>
+  <div id="playArea">
+    <div class="row" id="centerRow">
+      <div class="pile big" id="peekPile">
+        <div class="label">ВЕРХ КОЛОДЫ</div>
+        <canvas id="peekCanvas"></canvas>
+        <div id="deckCount"></div>
+      </div>
+      <div class="pile big">
+        <div class="label">СБРОС</div>
+        <canvas id="discardCanvas"></canvas>
+        <div id="lastPlayed">🤖 —</div>
+      </div>
+    </div>
+  </div>
+  <div id="hand"></div>
+</div>
+<canvas id="fxOverlay"></canvas>
+<div id="btns">
+  <button class="btn" id="unoBtn">📢 UNO!</button>
+</div>
+<div id="msg"></div>
+<div id="colorPick">
+  <div class="panel">
+    <div class="title">ВЫБЕРИ ЦВЕТ</div>
+    <div class="row">
+      <div class="swatch" data-c="red"   style="background:#e53935"></div>
+      <div class="swatch" data-c="yellow" style="background:#fdd835"></div>
+      <div class="swatch" data-c="green" style="background:#43a047"></div>
+      <div class="swatch" data-c="blue"  style="background:#1e88e5"></div>
+    </div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="box">
+    <div class="big" id="overText">ПОБЕДА!</div>
+    <div class="row" style="gap:10px;flex-direction:row">
+      <button id="overBtn">Новый раунд</button>
+      <button id="overResetBtn" style="background:#7a6043">Сброс счёта</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ===== UNO deck =====
+const COLORS = {
+  red:    { rgb:[229, 57, 53],  name:'Красный' },
+  yellow: { rgb:[253, 216, 53], name:'Жёлтый'  },
+  green:  { rgb:[67, 160, 71],  name:'Зелёный' },
+  blue:   { rgb:[30, 136, 229], name:'Синий'   },
+  black:  { rgb:[33, 33, 33],   name:'Чёрный'  }
+};
+const COLOR_KEYS = ['red','yellow','green','blue'];
+
+function makeDeck() {
+  const deck = [];
+  let id = 0;
+  for (const c of COLOR_KEYS) {
+    deck.push({ id:id++, color:c, value:0, kind:'num' });
+    for (let n=1; n<=9; n++) {
+      deck.push({ id:id++, color:c, value:n, kind:'num' });
+      deck.push({ id:id++, color:c, value:n, kind:'num' });
+    }
+    for (let i=0;i<2;i++) deck.push({ id:id++, color:c, value:'skip',   kind:'skip' });
+    for (let i=0;i<2;i++) deck.push({ id:id++, color:c, value:'reverse',kind:'rev' });
+    for (let i=0;i<2;i++) deck.push({ id:id++, color:c, value:'+2',     kind:'draw2' });
+  }
+  for (let i=0;i<4;i++) deck.push({ id:id++, color:'black', value:'wild',   kind:'wild' });
+  for (let i=0;i<4;i++) deck.push({ id:id++, color:'black', value:'+4',     kind:'wild4' });
+  return deck;
+}
+
+function shuffle(a) {
+  for (let i=a.length-1;i>0;i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// ===== Game state =====
+let deck = [], discard = [], you = [], bot = [];
+let current = 'you';           // 'you' | 'bot'
+let dir = 1;                  // 1 cw, -1 ccw
+let curColor = 'red';
+let pendingDraw = 0;
+let gameOver = false;
+let unoCalled = { you:false, bot:false };
+let aiThinking = false;
+let score = { you: 0, bot: 0 };   // running total across rounds
+let lastRound = null;             // info about who won the last round + points
+let peekShowCard = null;          // briefly show the drawn card face-up
+let peekShowUntil = 0;
+let hintOn = true;                 // show yellow frame around cards you can play
+// Animation system — flying cards between hand and discard pile.
+let fxAnims = [];                  // active flight animations
+let fxCv = null;                   // overlay canvas (set on init)
+let fxCtx = null;
+
+// Pre-baked image of a card (we re-draw it once at the player's card size, then translate/rotate the overlay)
+// Actually simpler: redraw the card every frame using drawCardArt.
+
+function discardPileCenter() {
+  const el = document.getElementById('discardCanvas');
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2, w: r.width, h: r.height };
+}
+function handCardCenter(idx) {
+  const el = document.querySelector('#hand .hcard[data-idx="' + idx + '"]');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2, w: r.width, h: r.height };
+}
+function botRandomCardCenter() {
+  const el = document.querySelector('#botHand .bcard');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+// Kick off a flight animation: card flies from `from` to `to` over `dur` ms, with arc + spin.
+function flingCard(card, from, to, dur) {
+  // Start position: from. End position: to, slightly off-center with a small rotation (lands crooked).
+  const startScale = 1.0;
+  const endDx = (Math.random() - 0.5) * 12;     // horizontal landing offset
+  const endDy = (Math.random() - 0.5) * 8;       // vertical landing offset
+  const endRot = (Math.random() - 0.5) * 0.24;    // ±6.9° final tilt — corners stay visible
+  const spinRotations = (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 1.5); // 1.5–3 full spins
+  const fx = {
+    card,
+    x0: from.x, y0: from.y,
+    x1: to.x + endDx, y1: to.y + endDy,
+    startScale,
+    endRot,
+    spinRotations,
+    dur,
+    t0: performance.now(),
+    finalDx: endDx, finalDy: endDy
+  };
+  fxAnims.push(fx);
+  if (!fxCv) {
+    fxCv = document.getElementById('fxOverlay');
+    sizeFxOverlay();
+    fxCtx = fxCv.getContext('2d');
+    requestAnimationFrame(fxTick);
+  } else {
+    sizeFxOverlay();
+  }
+}
+
+function sizeFxOverlay() {
+  if (!fxCv) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  fxCv.width  = Math.round(window.innerWidth  * dpr);
+  fxCv.height = Math.round(window.innerHeight * dpr);
+  fxCv.style.width  = window.innerWidth  + 'px';
+  fxCv.style.height = window.innerHeight + 'px';
+  if (fxCtx) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function fxTick(now) {
+  if (!fxCtx) { requestAnimationFrame(fxTick); return; }
+  fxCtx.clearRect(0, 0, fxCv.clientWidth, fxCv.clientHeight);
+  if (fxAnims.length === 0) {
+    // idle — nothing to draw
+    requestAnimationFrame(fxTick);
+    return;
+  }
+  // Update + draw each animation
+  const remaining = [];
+  const W = layout.cardW, H = layout.cardH;
+  for (const fx of fxAnims) {
+    const t = (now - fx.t0) / fx.dur;
+    if (t >= 1) {
+      // landed — don't redraw here, the discard pile render handles it now
+      continue;
+    }
+    remaining.push(fx);
+    // Position: ease-out cubic on x/y, parabolic arc on y
+    const e = 1 - Math.pow(1 - t, 3);
+    const x = fx.x0 + (fx.x1 - fx.x0) * e;
+    const arc = Math.sin(t * Math.PI) * -60;     // negative = upward arc
+    const y = fx.y0 + (fx.y1 - fx.y0) * e + arc;
+    // Rotation: total = spinRotations * 2π * t  +  endRot * e
+    const rot = fx.spinRotations * Math.PI * 2 * t + fx.endRot * e;
+    // Scale: pop up at start, settle to 1.0
+    const pop = t < 0.15 ? (1 + (1 - t/0.15) * 0.25) : 1;
+    // Draw card centered at (x,y), rotated
+    fxCtx.save();
+    fxCtx.translate(x, y);
+    fxCtx.rotate(rot);
+    fxCtx.scale(pop, pop);
+    drawCardArt(fxCtx, fx.card, -W/2, -H/2, W, H, false, false);
+    fxCtx.restore();
+  }
+  fxAnims = remaining;
+  requestAnimationFrame(fxTick);
+}
+window.addEventListener('resize', sizeFxOverlay);
+
+function newGame() {
+  // Full reset — new session, scores back to 0
+  score = { you: 0, bot: 0 };
+  lastRound = null;
+  newRound();
+}
+
+function newRound() {
+  // Resets the current round but keeps the running score.
+  deck = shuffle(makeDeck());
+  discard = []; you = []; bot = [];
+  current = 'you'; dir = 1; curColor = 'red';
+  pendingDraw = 0; gameOver = false;
+  unoCalled = { you:false, bot:false };
+  for (let i=0;i<7;i++) { you.push(deck.pop()); bot.push(deck.pop()); }
+  let first = deck.pop();
+  while (first.kind === 'wild4') { deck.unshift(first); shuffle(deck); first = deck.pop(); }
+  discard.push(first);
+  curColor = first.color;
+  if (first.kind === 'skip')   { current = 'bot'; }
+  if (first.kind === 'rev')    { dir = -1; current = 'bot'; }
+  if (first.kind === 'draw2')  { pendingDraw = 2; current = 'bot'; }
+  render();
+  updateMsg('Новый раунд! ' + (current==='you' ? 'Твой ход.' : 'Бот ходит первым.'));
+  setTimeout(()=>{
+    if (current === 'bot') {
+      if (ensureDrawPaid('bot')) { render(); return; }
+      aiTurn();
+    }
+  }, 700);
+}
+
+// Point value of a single card for scoring
+function cardPoints(card) {
+  if (card.kind === 'num')   return card.value;
+  if (card.kind === 'skip' || card.kind === 'rev' || card.kind === 'draw2') return 20;
+  if (card.kind === 'wild' || card.kind === 'wild4') return 50;
+  return 0;
+}
+
+// Sum of all cards remaining in a hand
+function handPoints(hand) {
+  let n = 0;
+  for (const c of hand) n += cardPoints(c);
+  return n;
+}
+
+// ===== Turn helpers =====
+function topCard() { return discard[discard.length-1]; }
+
+function checkWin() {
+  if (you.length === 0) {
+    const hand = handPoints(bot);
+    const bonus = 1;                          // round-win bonus
+    const pts = hand + bonus;
+    score.you += pts;
+    lastRound = { winner:'you', hand, bonus, total:pts };
+    // Bot learns from your win — each round you take raises its aggression by 5%.
+    AI_PROFILE.yourWins += 1;
+    if (!unoCalled.you) AI_PROFILE.youMissedUno += 1;
+    else AI_PROFILE.youCalledUno += 1;
+    AI_PROFILE.lastRoundSummary = { winner:'you', aggr: aiAggression() };
+    showOverlay('ВЫ ПОБЕДИЛИ! 🎉\n+' + hand + ' (рука) +' + bonus + ' (бонус) = +' + pts + ' очков\nСчёт: ' + score.you + ' : ' + score.bot + '\nАгрессия бота: ' + Math.round(aiAggression()*100) + '%', true);
+    gameOver = true; return true;
+  }
+  if (bot.length === 0) {
+    const hand = handPoints(you);
+    const bonus = 1;
+    const pts = hand + bonus;
+    score.bot += pts;
+    lastRound = { winner:'bot', hand, bonus, total:pts };
+    AI_PROFILE.lastRoundSummary = { winner:'bot', aggr: aiAggression() };
+    showOverlay('БОТ ПОБЕДИЛ 🤖\n+' + hand + ' (рука) +' + bonus + ' (бонус) = +' + pts + ' очков\nСчёт: ' + score.you + ' : ' + score.bot + '\nАгрессия бота: ' + Math.round(aiAggression()*100) + '%', false);
+    gameOver = true; return true;
+  }
+  return false;
+}
+
+// ===== Validity =====
+function canPlay(card, color) {
+  const top = topCard();
+  if (card.kind === 'wild' || card.kind === 'wild4') return true;
+  if (pendingDraw > 0) {
+    // Stacking rule: +2 only on +2, +4 only on +4. We'll allow both +2 stacking +2 and +4 stacking +4; +4 can stack anything for simplicity.
+    if (card.kind === 'draw2' && top.kind === 'draw2') return true;
+    if (card.kind === 'wild4') return true;
+    return false;
+  }
+  return card.color === color || card.value === top.value;
+}
+
+// ===== Handlers =====
+// Plays a card from the given hand array at idx. chosenColor is required for black cards.
+// Shows the "last played" label for the player whose card it was.
+// Returns true on success.
+// Plays a card from the given hand array at idx. chosenColor is required for black cards.
+// Shows the "last played" label + a flight animation from hand to discard pile.
+// `srcRect` is optional: the source location on screen (for the animation start point).
+function playCardFrom(hand, idx, chosenColor, isBot, srcRect) {
+  const card = hand[idx];
+  if (!card) return false;
+  if (!canPlay(card, curColor)) return false;
+  hand.splice(idx, 1);
+  discard.push(card);
+  if (card.color !== 'black') curColor = card.color;
+  else if (chosenColor) curColor = chosenColor;
+
+  // Schedule the flight animation AFTER the discard pile has rendered the card in its slot,
+  // so the user sees: card leaves hand -> flies in arc -> pile gets the card (already drawn stacked).
+  const toRect = discardPileCenter();
+  let from = srcRect;
+  if (!from) {
+    if (isBot) from = botRandomCardCenter() || toRect;
+    else        from = handCardCenter(idx) || toRect;
+  }
+  // 50 ms delay so the click animation in the hand has a moment to play
+  setTimeout(() => flingCard(card, from, toRect, 480), 30);
+
+  flashLastPlayed(describeCard(card, chosenColor), isBot);
+  applyCardEffect(card);
+  return true;
+}
+
+function playFromHand(idx, chosenColor) {
+  // Backward-compat: caller may not know whose turn it is — figure it out.
+  const isBot = (current === 'bot');
+  const hand = isBot ? bot : you;
+  return playCardFrom(hand, idx, chosenColor, isBot);
+}
+
+// Applies a card's effect and advances the turn. Returns the player who must act next.
+// NOTE: skip reverses skip ONCE for the next player.
+// Caller is responsible for any +N stacking resolution BEFORE calling this.
+function applyCardEffect(card) {
+  let skipOne = false;
+  if (card.kind === 'skip')   skipOne = true;
+  if (card.kind === 'rev')    dir = -dir;
+  if (card.kind === 'draw2')  pendingDraw += 2;
+  if (card.kind === 'wild4')  pendingDraw += 4;
+
+  // Advance to the opponent
+  current = (current === 'you') ? 'bot' : 'you';
+  // If we just played a skip, skip the next player too (current was already switched)
+  if (skipOne) current = (current === 'you') ? 'bot' : 'you';
+}
+
+// Human-readable label for the card a player just played
+function describeCard(card, chosenColor) {
+  const colName = COLORS[chosenColor || card.color].name;
+  let what = '';
+  if (card.kind === 'num')   what = String(card.value);
+  else if (card.kind === 'skip')   what = 'Пропуск';
+  else if (card.kind === 'rev')    what = 'Реверс';
+  else if (card.kind === 'draw2')  what = '+2';
+  else if (card.kind === 'wild')   what = 'Wild → ' + colName;
+  else if (card.kind === 'wild4')  what = '+4 → ' + colName;
+  return colName + ' · ' + what;
+}
+
+function flashLastPlayed(text, isBot) {
+  const el = document.getElementById('lastPlayed');
+  el.textContent = (isBot ? '🤖 ' : '👤 ') + text;
+  el.classList.remove('show');
+  // force reflow so animation restarts
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function drawOne(forWho) {
+  if (deck.length === 0) reshuffleDiscardIntoDeck();
+  if (deck.length === 0) return null;
+  const c = deck.pop();
+  (forWho==='you' ? you : bot).push(c);
+  return c;
+}
+
+function reshuffleDiscardIntoDeck() {
+  if (discard.length <= 1) return;
+  const top = discard.pop();
+  deck = shuffle(discard);
+  discard = [top];
+}
+
+function drawCardsFor(who, n) {
+  for (let i=0;i<n;i++) drawOne(who);
+}
+
+// ===== AI =====
+const AI_PROFILE = {
+  // Adaptive bot — learns your patterns after each of your wins.
+  yourWins: 0,             // rounds you won — each one bumps aggression
+  aggression: 0,           // 0..1, derived from yourWins
+  // Stats the bot tracks about how you play:
+  youPlayed: { red:0, yellow:0, green:0, blue:0, black:0 },   // color counts you played
+  youStackedOnPlus: 0,                                             // times you stacked +2/+4 instead of drawing
+  youCalledUno: 0,                                                  // times you hit UNO!
+  youMissedUno: 0,                                                  // times you won without ever calling (yourWins - youCalledUno)
+  lastRoundSummary: null,
+};
+
+function aiAggression() {
+  // Each of your wins bumps aggression by 0.05, capped at 0.95
+  return Math.min(0.95, AI_PROFILE.yourWins * 0.05);
+}
+
+function aiTurn() {
+  if (gameOver || current !== 'bot') return;
+  aiThinking = true;
+  render();
+  const hand = bot;
+  const top = topCard();
+  const aggression = aiAggression();
+
+  // Decide what to do.
+  let chosen = -1, chosenColor = null;
+
+  // 1) Stack a pending +N penalty if we can.
+  if (pendingDraw > 0) {
+    const stack4 = hand.findIndex(c => c.kind === 'wild4');
+    const stack2 = hand.findIndex(c => c.kind === 'draw2' && top.kind === 'draw2');
+    if (stack4 !== -1)       { chosen = stack4; chosenColor = aiPickColor(); }
+    else if (stack2 !== -1)  { chosen = stack2; }
+  }
+
+  if (chosen === -1) {
+    // 2) Build list of playable cards and score each one. Pick the highest.
+    const playable = [];
+    for (let i=0;i<hand.length;i++) if (canPlay(hand[i], curColor)) playable.push(i);
+    if (playable.length > 0) {
+      const oppHandSize = you.length;          // threat: how close are YOU to winning?
+      const myHandSize   = hand.length;
+
+      // Score each playable card. Higher = bot prefers to play it.
+      const score = (c) => {
+        // Wild / +4 — always good when opponent is close to winning, or when aggression is high.
+        if (c.kind === 'wild4') {
+          // Best when you're close to 0 cards, OR aggression is up
+          return 50 + oppHandSize * 5 + aggression * 30;
+        }
+        if (c.kind === 'wild') {
+          // Modest value: lets us pivot color.
+          return 20 + aggression * 15;
+        }
+        if (c.kind === 'draw2') {
+          // Strong when opponent has many cards; weaker early game.
+          return 25 + oppHandSize * 4 + aggression * 20;
+        }
+        if (c.kind === 'skip') {
+          return 22 + (myHandSize <= oppHandSize ? 12 : 0);
+        }
+        if (c.kind === 'rev') {
+          return 18 + (myHandSize <= oppHandSize ? 8 : 0);
+        }
+        // Number cards: prefer ones close to 0 (more cards out of hand quickly).
+        return 5 + (9 - c.value);
+      };
+      // Pick best
+      let bestScore = -Infinity, bestIdx = playable[0];
+      for (const i of playable) {
+        const s = score(hand[i]);
+        if (s > bestScore) { bestScore = s; bestIdx = i; }
+      }
+      chosen = bestIdx;
+      if (hand[chosen].color === 'black') chosenColor = aiPickColor();
+    }
+  }
+
+  setTimeout(() => {
+    aiThinking = false;
+    if (chosen === -1) {
+      const nCards = pendingDraw > 0 ? pendingDraw : 1;
+      drawCardsFor('bot', nCards);
+      if (pendingDraw > 0) {
+        updateMsg(`Бот берёт ${nCards} карт.`);
+        pendingDraw = 0;
+        current = 'you';
+        resolveAfterPlay();
+        return;
+      }
+      // Free draw — house rule: play the drawn card if it matches.
+      const last = bot[bot.length-1];
+      if (last && canPlay(last, curColor)) {
+        const idx = bot.length - 1;
+        if (last.color === 'black') {
+          const col = aiPickColor();
+          playCardFrom(bot, idx, col, true);
+        } else {
+          playCardFrom(bot, idx, null, true);
+        }
+      } else {
+        updateMsg('Твой ход.');
+        current = 'you';
+      }
+    } else {
+      playCardFrom(bot, chosen, chosenColor, true);
+    }
+    if (bot.length === 1) unoCalled.bot = true;
+    resolveAfterPlay();
+  }, 650);
+}
+
+function aiPickColor() {
+  // Bot picks the color that hurts YOU most:
+  // 1) Count bot's own cards per color (preserve ammo).
+  // 2) Penalize the color YOU play most (based on AI_PROFILE.youPlayed).
+  // 3) If aggression is high, weight (2) more — bot actively counters your habits.
+  const counts = { red:0, yellow:0, green:0, blue:0 };
+  for (const c of bot) if (c.color !== 'black') counts[c.color]++;
+  const aggr = aiAggression();
+  const totals = { red:0, yellow:0, green:0, blue:0 };
+  for (const k of COLOR_KEYS) totals[k] = counts[k] * 1.0 - (AI_PROFILE.youPlayed[k] || 0) * (0.5 + aggr);
+  let best='red', max=-Infinity;
+  for (const k of COLOR_KEYS) if (totals[k] > max) { max = totals[k]; best = k; }
+  return best;
+}
+
+// ===== Rendering =====
+function drawCardArt(ctx, card, x, y, w, h, faceDown, dim) {
+  ctx.save();
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  // Base card (white)
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  if (faceDown) {
+    // UNO back: red oval with "UNO"
+    ctx.fillStyle = '#1d1d1d';
+    roundRect(ctx, x+2, y+2, w-4, h-4, 8);
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, x+2, y+2, w-4, h-4, 8);
+    ctx.clip();
+    ctx.fillStyle = '#e53935';
+    ctx.beginPath();
+    ctx.ellipse(x+w/2, y+h/2, w*0.38, h*0.22, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold ' + Math.floor(h*0.16) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('UNO', x+w/2, y+h/2);
+    ctx.restore();
+    ctx.restore();
+    return;
+  }
+
+  const c = COLORS[card.color];
+  // Big colored oval (center)
+  ctx.fillStyle = dim ? 'rgba(0,0,0,0.25)' : `rgb(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]})`;
+  ctx.beginPath();
+  ctx.ellipse(x+w/2, y+h/2, w*0.4, h*0.26, 0, 0, Math.PI*2);
+  ctx.fill();
+  // Inner white oval for number readability on dark colors
+  if (card.color !== 'yellow' && card.color !== 'black') {
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath();
+    ctx.ellipse(x+w/2, y+h/2, w*0.28, h*0.17, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Center symbol
+  drawSymbol(ctx, card, x+w/2, y+h/2, h*0.22);
+
+  // Top-left small index
+  ctx.save();
+  ctx.translate(x + 14, y + 14);
+  ctx.fillStyle = dim ? 'rgba(0,0,0,0.25)' : `rgb(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]})`;
+  ctx.fillText(ctx.font = 'bold 14px sans-serif', '', 0, 0);  // dummy
+  ctx.restore();
+
+  drawCorner(ctx, card, x + 6, y + 6, false);
+  // Bottom-right corner (rotated)
+  ctx.save();
+  ctx.translate(x + w - 6, y + h - 6);
+  ctx.rotate(Math.PI);
+  drawCorner(ctx, card, 0, 0, true);
+  ctx.restore();
+
+  // Wild indicator stripe top
+  if (card.kind === 'wild' || card.kind === 'wild4') {
+    const stripeH = h * 0.12;
+    const grad = ctx.createLinearGradient(x, y, x+w, y);
+    grad.addColorStop(0, '#e53935');
+    grad.addColorStop(0.33, '#fdd835');
+    grad.addColorStop(0.66, '#43a047');
+    grad.addColorStop(1, '#1e88e5');
+    ctx.fillStyle = grad;
+    roundRect(ctx, x+4, y+4, w-8, stripeH, 4);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawSymbol(ctx, card, cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const isYellow = card.color === 'yellow';
+  const txtColor = (card.color === 'black' || isYellow) ? '#000' : '#000';
+  if (card.kind === 'num') {
+    ctx.fillStyle = txtColor;
+    ctx.font = `bold ${Math.floor(size*2.2)}px sans-serif`;
+    ctx.fillText(String(card.value), 0, 4);
+  } else if (card.kind === 'skip') {
+    ctx.fillStyle = txtColor;
+    ctx.font = `bold ${Math.floor(size*2.4)}px sans-serif`;
+    ctx.fillText('⊘', 0, 4);
+    // circle with slash - drawn manually for clarity
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = size*0.18;
+    ctx.beginPath(); ctx.arc(0, -2, size*0.6, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-size*0.5, -size*0.5); ctx.lineTo(size*0.5, size*0.5); ctx.stroke();
+  } else if (card.kind === 'rev') {
+    ctx.fillStyle = txtColor;
+    ctx.font = `bold ${Math.floor(size*1.6)}px sans-serif`;
+    ctx.fillText('⇄', 0, 4);
+  } else if (card.kind === 'draw2') {
+    ctx.fillStyle = txtColor;
+    ctx.font = `bold ${Math.floor(size*1.3)}px sans-serif`;
+    ctx.fillText('+2', 0, 4);
+  } else if (card.kind === 'wild') {
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(size*0.7)}px sans-serif`;
+    ctx.fillText('WILD', 0, 4);
+  } else if (card.kind === 'wild4') {
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(size*0.7)}px sans-serif`;
+    ctx.fillText('+4', 0, 4);
+  }
+  ctx.restore();
+}
+
+function drawCorner(ctx, card, x, y, rotated) {
+  const c = COLORS[card.color];
+  // Background pip
+  ctx.fillStyle = `rgb(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]})`;
+  ctx.beginPath(); ctx.arc(x+8, y+8, 8, 0, Math.PI*2); ctx.fill();
+  // Symbol inside
+  ctx.fillStyle = (card.color === 'black' || card.color === 'yellow') ? '#000' : '#fff';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const sym = card.kind === 'num' ? String(card.value)
+            : card.kind === 'skip' ? '⊘'
+            : card.kind === 'rev' ? '⇄'
+            : card.kind === 'draw2' ? '+2'
+            : card.kind === 'wild' ? 'W'
+            : card.kind === 'wild4' ? '+4'
+            : '?';
+  ctx.fillText(sym, x+8, y+9);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+// ===== Layout (responsive) =====
+let layout = { cardW:100, cardH:145, peekW:56, peekH:80, handW:84, handH:120, botW:56, botH:80, gap:18 };
+
+function fitLayout() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const botRowH = Math.min(110, Math.max(78, vh * 0.10));
+  const handRowH = Math.min(180, Math.max(120, vh * 0.18));
+  const usableH = vh - 48 - botRowH - handRowH - 100;
+
+  // Two big cards in the center row, fully visible.
+  // Reserve enough horizontal room: viewport width - 24px total side padding - gap.
+  const gap = 16;
+  const sidePad = 12; // px reserved on each side so cards never touch the screen edge
+  const maxRowW = vw - 2 * sidePad;
+  let bigW = Math.floor((maxRowW - gap) / 2);
+  bigW = Math.min(bigW, 180); // cap so cards don't get absurdly big on tablets
+  let bigH = Math.round(bigW / 0.69);
+  // Then constrain by vertical space if needed (very short screens)
+  if (bigH > usableH * 0.78) {
+    bigH = Math.round(usableH * 0.78);
+    bigW = Math.round(bigH * 0.69);
+  }
+  bigW = Math.max(70, bigW); // sanity floor — never smaller than 70px
+  bigH = Math.max(100, bigH);
+  const cardW = bigW, cardH = bigH;
+  const peekW = Math.max(70, bigW - 8);   // колода чуть меньше сброса (~7-8 px = ~2 мм)
+  const peekH = Math.max(100, bigH - 12);
+
+  // Hand cards
+  const handCount = Math.max(5, you.length || 7);
+  const handW = Math.max(60, Math.min(110, Math.floor((vw - 32 - (handCount-1)*6) / Math.min(handCount, 8))));
+  const handH = Math.round(handW * 1.43);
+
+  // Bot cards
+  const botCount = Math.max(5, bot.length || 7);
+  const botW = Math.max(36, Math.min(72, Math.floor((vw - 24 - (botCount-1)*4) / Math.min(botCount, 12))));
+  const botH = Math.round(botW * 1.43);
+
+  layout = { cardW, cardH, peekW, peekH, handW, handH, botW, botH, gap };
+  const root = document.documentElement.style;
+  root.setProperty('--big-w', bigW + 'px');
+  root.setProperty('--big-h', bigH + 'px');
+  root.setProperty('--card-w', cardW + 'px');
+  root.setProperty('--card-h', cardH + 'px');
+  root.setProperty('--peek-w', peekW + 'px');
+  root.setProperty('--peek-h', peekH + 'px');
+  root.setProperty('--handcard-w', handW + 'px');
+  root.setProperty('--handcard-h', handH + 'px');
+  root.setProperty('--botcard-w', botW + 'px');
+  root.setProperty('--botcard-h', botH + 'px');
+  root.setProperty('--handrow-h', handRowH + 'px');
+  root.setProperty('--botrow-h', botRowH + 'px');
+
+  // Canvas backing pixels (retina). Add slack so rotated/stacked cards don't clip.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const slack = 50; // px of extra room around the card so rotated cards' corners stay visible
+  const resizeCv = (id, w, h) => {
+    const cv = document.getElementById(id);
+    cv.width  = Math.round((w + slack) * dpr);
+    cv.height = Math.round((h + slack) * dpr);
+    cv.style.width  = (w + slack) + 'px';
+    cv.style.height = (h + slack) + 'px';
+    cv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resizeCv('discardCanvas', cardW, cardH);
+  resizeCv('peekCanvas',    peekW, peekH);
+}
+
+function render() {
+  fitLayout();
+  // Top bar info
+  document.getElementById('aiCount').textContent = bot.length;
+  document.getElementById('youCount').textContent = you.length;
+  document.getElementById('aiScore').textContent = score.bot;
+  document.getElementById('youScore').textContent = score.you;
+  const aggrPct = Math.round(aiAggression() * 100);
+  document.getElementById('aggrVal').textContent = aggrPct + '%';
+  // Color the aggression pill based on intensity
+  const ap = document.getElementById('aggrPill');
+  if (aggrPct >= 60)      ap.style.background = '#c44b3a';
+  else if (aggrPct >= 30) ap.style.background = '#a86b2b';
+  else if (aggrPct > 0)   ap.style.background = '#3a8c5c';
+  else                    ap.style.background = '#243d2c';
+  const cn = COLORS[curColor];
+  document.getElementById('colorDot').style.background = `rgb(${cn.rgb[0]},${cn.rgb[1]},${cn.rgb[2]})`;
+  document.getElementById('colorName').textContent = cn.name;
+  const dirSvg = document.getElementById('dir');
+  dirSvg.style.transform = (dir===-1) ? 'scaleX(-1)' : 'none';
+
+  // Discard pile — show the top 4 cards as a sloppy stack so you can see how they landed.
+  const dcv = document.getElementById('discardCanvas');
+  const dctx = dcv.getContext('2d');
+  dctx.clearRect(0,0,dcv.clientWidth,dcv.clientHeight);
+  // Stable per-card offsets so the stack stays put between renders.
+  if (!window._discardOffsets) window._discardOffsets = [];
+  while (window._discardOffsets.length < discard.length) {
+    // Each new card lands slightly off-center on top of the previous pile.
+    // Rotation kept modest so corners stay inside the canvas slack.
+    window._discardOffsets.push({
+      dx: (Math.random()-0.5)*16,            // horizontal spread — corners peek out
+      dy: (Math.random()-0.5)*10,
+      rot: (Math.random()-0.5)*0.26          // up to ±7.4°
+    });
+  }
+  const startIdx = Math.max(0, discard.length - 4);
+  // Canvas is `slack` px wider/taller than the card; center card inside it.
+  const ox = (dcv.clientWidth  - layout.cardW) / 2;
+  const oy = (dcv.clientHeight - layout.cardH) / 2;
+  for (let i = startIdx; i < discard.length; i++) {
+    const off = window._discardOffsets[i];
+    dctx.save();
+    dctx.translate(ox + layout.cardW/2 + off.dx, oy + layout.cardH/2 + off.dy);
+    dctx.rotate(off.rot);
+    // Bottom cards rendered slightly dimmer to convey depth
+    const dim = i < discard.length - 1 ? 0.85 : 1.0;
+    dctx.globalAlpha = dim;
+    drawCardArt(dctx, discard[i], -layout.cardW/2, -layout.cardH/2, layout.cardW, layout.cardH, false, false);
+    dctx.restore();
+  }
+  dctx.globalAlpha = 1.0;
+  if (window._discardOffsets.length > discard.length) {
+    window._discardOffsets.length = discard.length;
+  }
+
+  // Peek = top card of deck, face DOWN. Neither you nor the bot can see it.
+  const peekCv = document.getElementById('peekCanvas');
+  const peekCtx = peekCv.getContext('2d');
+  peekCtx.clearRect(0,0,peekCv.clientWidth,peekCv.clientHeight);
+  if (deck.length > 0) {
+    const ox = (peekCv.clientWidth  - layout.peekW) / 2;
+    const oy = (peekCv.clientHeight - layout.peekH) / 2;
+    drawCardArt(peekCtx, { color:'red', value:0, kind:'num' }, ox, oy, layout.peekW, layout.peekH, true, false);
+  } else {
+    peekCtx.fillStyle = '#243d2c'; peekCtx.fillRect(0,0,peekCv.clientWidth,peekCv.clientHeight);
+    peekCtx.fillStyle = '#8aa896'; peekCtx.font = 'bold 12px sans-serif';
+    peekCtx.textAlign = 'center'; peekCtx.fillText('ПУСТО', peekCv.clientWidth/2, peekCv.clientHeight/2);
+  }
+  // Dim/disable peek when it's not your turn
+  const peekPileEl = document.getElementById('peekPile');
+  if (current !== 'you' || aiThinking || gameOver) peekPileEl.classList.add('disabled');
+  else                                       peekPileEl.classList.remove('disabled');
+  // Deck count under peek
+  document.getElementById('deckCount').textContent = `в колоде: ${deck.length}`;
+
+  // Hand
+  const handDiv = document.getElementById('hand');
+  handDiv.classList.toggle('noHint', !hintOn);
+  handDiv.innerHTML = '';
+  for (let i=0;i<you.length;i++) {
+    const card = you[i];
+    const wrap = document.createElement('div');
+    const playable = hintOn && canPlay(card, curColor);
+    const blocked  = (current !== 'you') || aiThinking || gameOver || !playable;
+    wrap.className = 'hcard' + (playable ? ' playable' : '') + (blocked ? ' disabled' : '');
+    wrap.dataset.idx = i;
+    const cv = document.createElement('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width  = Math.round(layout.handW * dpr);
+    cv.height = Math.round(layout.handH * dpr);
+    cv.style.width  = layout.handW + 'px';
+    cv.style.height = layout.handH + 'px';
+    const cx = cv.getContext('2d');
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawCardArt(cx, card, 0, 0, layout.handW, layout.handH, false, false);
+    wrap.appendChild(cv);
+    wrap.onclick = () => onYouClick(i);
+    handDiv.appendChild(wrap);
+  }
+
+  // Bot hand — face DOWN. Only count matters.
+  const botDiv = document.getElementById('botHand');
+  botDiv.innerHTML = '';
+  for (let i=0;i<bot.length;i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'bcard';
+    const cv = document.createElement('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width  = Math.round(layout.botW * dpr);
+    cv.height = Math.round(layout.botH * dpr);
+    cv.style.width  = layout.botW + 'px';
+    cv.style.height = layout.botH + 'px';
+    const cx = cv.getContext('2d');
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawCardArt(cx, { color:'red', value:0, kind:'num' }, 0, 0, layout.botW, layout.botH, true, false);
+    wrap.appendChild(cv);
+    botDiv.appendChild(wrap);
+  }
+
+  // Peek top of draw pile — face-up  (handled above in the main peek render)
+  const peekCv2 = document.getElementById('peekCanvas');
+  if (peekCv2 && peekCv2.width !== layout.peekW) { /* already resized by fitLayout */ }
+
+  // UNO button (no separate draw button — tapping the peek pile is the way)
+  const unoBtn = document.getElementById('unoBtn');
+  unoBtn.disabled = (you.length !== 1 && bot.length !== 1);
+}
+
+// ===== User interaction =====
+function onYouClick(idx) {
+  if (current !== 'you' || aiThinking || gameOver) return;
+  // If pendingDraw penalty applies and you can't stack, the draw button is your only option.
+  if (pendingDraw > 0) { updateMsg('Сначала возьми карты или стэкни +2/+4.'); return; }
+  const card = you[idx];
+  if (!canPlay(card, curColor)) return;
+  // Capture the card's on-screen position BEFORE we splice it from the hand
+  const srcRect = handCardCenter(idx);
+  // Track player's color play patterns for the adaptive bot
+  AI_PROFILE.youPlayed[card.color] = (AI_PROFILE.youPlayed[card.color] || 0) + 1;
+  if (card.kind === 'wild4') AI_PROFILE.youPlayed.black += 1;
+  if (card.kind === 'wild' || card.kind === 'wild4') AI_PROFILE.youStackedOnPlus += 1;
+  if (card.kind === 'wild' || card.kind === 'wild4') {
+    showColorPicker((color) => {
+      playCardFrom(you, idx, color, false, srcRect);
+      resolveAfterPlay();
+    });
+    return;
+  }
+  playCardFrom(you, idx, null, false, srcRect);
+  resolveAfterPlay();
+}
+
+function resolveAfterPlay() {
+  if (checkWin()) { render(); return; }
+  // NOTE: pendingDraw penalty is resolved at the START of a player's turn (in ensureDrawPaid),
+  // NOT immediately after the +N card is played. This gives the next player the option to stack.
+  render();
+  if (!gameOver && current === 'bot') setTimeout(aiTurn, 2000);
+}
+
+// Call this at the very start of a player's turn. If they owe cards and can't/don't stack,
+// they draw and lose the turn. If they can stack, we let them act normally.
+function ensureDrawPaid(forWho) {
+  if (pendingDraw <= 0) return false;
+  const hand = (forWho === 'you') ? you : bot;
+  // Can they stack?
+  const canStack4 = hand.some(c => c.kind === 'wild4');
+  const top = topCard();
+  const canStack2 = hand.some(c => c.kind === 'draw2' && top.kind === 'draw2');
+  if (canStack4 || canStack2) return false; // let them play a stack card
+  // Otherwise: draw and skip
+  drawCardsFor(forWho, pendingDraw);
+  updateMsg(`${forWho==='you'?'Ты':'Бот'} берёт ${pendingDraw} карт.`);
+  pendingDraw = 0;
+  // Skip their turn — pass back
+  current = (forWho === 'you') ? 'bot' : 'you';
+  return true;
+}
+
+function userDraw() {
+  if (current !== 'you' || aiThinking || gameOver) return;
+  if (pendingDraw > 0) {
+    drawCardsFor('you', pendingDraw);
+    updateMsg(`Ты берёшь ${pendingDraw} карт.`);
+    pendingDraw = 0;
+    current = 'bot';
+  } else {
+    drawOne('you');
+    updateMsg('Ты взял(а) карту.');
+    current = 'bot';
+  }
+  render();
+  if (!gameOver && current === 'bot') setTimeout(aiTurn, 2000);
+}
+document.getElementById('peekPile').onclick = userDraw;
+
+document.getElementById('hintBtn').onclick = () => {
+  hintOn = !hintOn;
+  const btn = document.getElementById('hintBtn');
+  btn.classList.toggle('on', hintOn);
+  btn.title = hintOn ? 'Подсветка ВКЛ — тапни чтобы выключить' : 'Подсветка ВЫКЛ — тапни чтобы включить';
+  render();
+};
+
+document.getElementById('unoBtn').onclick = () => {
+  if (you.length === 1 || bot.length === 1) {
+    unoCalled.you = true;
+    updateMsg('UNO! 📢');
+  } else {
+    updateMsg('UNO можно крикнуть, когда в руке 1 карта.');
+  }
+};
+
+document.getElementById('overBtn').onclick = () => {
+  document.getElementById('overlay').classList.remove('show');
+  newRound();
+};
+document.getElementById('overResetBtn').onclick = () => {
+  document.getElementById('overlay').classList.remove('show');
+  // Reset the adaptive profile too — fresh start
+  AI_PROFILE.yourWins = 0;
+  AI_PROFILE.aggression = 0;
+  AI_PROFILE.youPlayed = { red:0, yellow:0, green:0, blue:0, black:0 };
+  AI_PROFILE.youStackedOnPlus = 0;
+  AI_PROFILE.youCalledUno = 0;
+  AI_PROFILE.youMissedUno = 0;
+  newGame();
+};
+
+// Color picker
+document.querySelectorAll('#colorPick .swatch').forEach(el => {
+  el.onclick = () => {
+    const color = el.dataset.c;
+    document.getElementById('colorPick').classList.remove('show');
+    if (window._pickCb) window._pickCb(color);
+  };
+});
+
+function showColorPicker(cb) {
+  window._pickCb = cb;
+  document.getElementById('colorPick').classList.add('show');
+}
+
+let msgTimer = null;
+function updateMsg(text) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+function showOverlay(text, win) {
+  const ov = document.getElementById('overlay');
+  const t = document.getElementById('overText');
+  t.textContent = text;
+  t.className = 'big ' + (win ? 'win' : 'lose');
+  ov.classList.add('show');
+}
+
+// ===== Resize =====
+window.addEventListener('resize', () => { render(); });
+
+// ===== Start =====
+document.getElementById('hintBtn').classList.add('on');
+newGame();
+</script>
+</body>
+</html>
